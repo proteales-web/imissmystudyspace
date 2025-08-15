@@ -22,12 +22,19 @@
   const viewer = document.querySelector('#brainViewer');
 
   viewer.addEventListener('load', () => {
-    const materials = viewer.model.materials;
-    materials.forEach(mat => {
-      // Remove texture so color shows clearly
+    if (!viewer.model) {
+      console.error("Model failed to load.");
+      return;
+    }
+
+    // Loop through all materials and recolor
+    viewer.model.materials.forEach(mat => {
+      // Remove textures so the base color shows
       mat.pbrMetallicRoughness.baseColorTexture = null;
-      // Set new base color (#C9A96B → 0–1 values)
+      // Set to #C9A96B (RGBA in 0–1 range)
       mat.pbrMetallicRoughness.setBaseColorFactor([0.788, 0.663, 0.420, 1]);
     });
+
+    console.log("Model recolored to #C9A96B");
   });
 </script>
