@@ -6,103 +6,130 @@
 <title>Interactive Math Game</title>
 <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Josefin Sans', sans-serif; }
-  body, html {
-    height: 100%;
-    background-color: #141818;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Josefin Sans', sans-serif; }
+  body, html { width:100%; height:100%; background:#141818; color:#f9f9f9; display:flex; justify-content:center; align-items:center; }
+  .game-container {
+    background:#141818;
+    border:4px solid #f9f9f9;
+    border-radius:15px;
+    padding:30px;
+    text-align:center;
+    max-width:500px;
+    width:90%;
   }
-  #gameContainer {
-    background-color: #f9f9f9;
-    color: #141818;
-    border: 5px solid #C9A96B;
-    border-radius: 15px;
-    padding: 40px;
-    text-align: center;
-    max-width: 500px;
-    width: 90%;
+  h1 { margin-bottom:20px; color:#C9A96B; }
+  .question { font-size:2rem; margin:20px 0; }
+  .choices { display:flex; flex-wrap:wrap; justify-content:center; gap:15px; margin-top:15px; }
+  .choices button { padding:10px 20px; font-size:1.2rem; border:none; border-radius:5px; background:#C9A96B; color:#141818; cursor:pointer; transition:0.3s; min-width:90px; }
+  .choices button:hover { background:#b8995a; }
+  .score, .timer, .highscore { margin-top:15px; font-size:1.2rem; }
+  @media(max-width:400px){
+    .question { font-size:1.5rem; }
+    .choices button { font-size:1rem; padding:8px 12px; min-width:70px; }
   }
-  h1 { margin-bottom: 20px; color: #C9A96B; }
-  button {
-    background-color: #C9A96B;
-    color: #141818;
-    border: none;
-    padding: 10px 20px;
-    margin-top: 20px;
-    font-size: 1.1rem;
-    cursor: pointer;
-    border-radius: 8px;
-    transition: background 0.3s;
-  }
-  button:hover { background-color: #a78b4b; }
-  input {
-    padding: 10px;
-    width: 60px;
-    font-size: 1rem;
-    text-align: center;
-    margin-top: 10px;
-  }
-  #feedback { margin-top: 15px; font-weight: bold; }
 </style>
 </head>
 <body>
-<div id="gameContainer">
+
+<div class="game-container">
   <h1>Math Challenge</h1>
-  <div id="question"></div>
-  <input type="number" id="answerInput" placeholder="Your answer">
-  <br>
-  <button id="submitBtn">Submit</button>
-  <div id="feedback"></div>
-  <div id="score">Score: 0</div>
+  <div class="timer" id="timer">Time: 60s</div>
+  <div class="question" id="question">Loading...</div>
+  <div class="choices" id="choices"></div>
+  <div class="score" id="score">Score: 0</div>
+  <div class="highscore" id="highscore">High Score: 0</div>
+  <button id="restartBtn" style="margin-top:15px; display:none; background:#f9f9f9; color:#141818;">Restart Game</button>
 </div>
 
 <script>
   const questionEl = document.getElementById('question');
-  const answerInput = document.getElementById('answerInput');
-  const submitBtn = document.getElementById('submitBtn');
-  const feedbackEl = document.getElementById('feedback');
+  const choicesEl = document.getElementById('choices');
   const scoreEl = document.getElementById('score');
+  const timerEl = document.getElementById('timer');
+  const highscoreEl = document.getElementById('highscore');
+  const restartBtn = document.getElementById('restartBtn');
 
   let score = 0;
+  let highScore = localStorage.getItem('highScore') || 0;
+  highscoreEl.innerText = `High Score: ${highScore}`;
+  let timeLeft = 60;
+  let timerId;
   let currentAnswer;
 
-  function generateQuestion() {
-    const num1 = Math.floor(Math.random() * 20) + 1;
-    const num2 = Math.floor(Math.random() * 20) + 1;
-    const operations = ['+', '-', '*'];
-    const op = operations[Math.floor(Math.random() * operations.length)];
-
-    switch(op) {
-      case '+': currentAnswer = num1 + num2; break;
-      case '-': currentAnswer = num1 - num2; break;
-      case '*': currentAnswer = num1 * num2; break;
-    }
-
-    questionEl.textContent = `What is ${num1} ${op} ${num2}?`;
-    answerInput.value = '';
-    answerInput.focus();
-    feedbackEl.textContent = '';
+  function startGame() {
+    score = 0;
+    timeLeft = 60;
+    scoreEl.innerText = `Score: ${score}`;
+    timerEl.innerText = `Time: ${timeLeft}s`;
+    restartBtn.style.display = 'none';
+    generateQuestion();
+    timerId = setInterval(() => {
+      timeLeft--;
+      timerEl.innerText = `Time: ${timeLeft}s`;
+      if(timeLeft <= 0){
+        endGame();
+      }
+    }, 1000);
   }
 
-  submitBtn.addEventListener('click', () => {
-    const userAnswer = parseInt(answerInput.value);
-    if(userAnswer === currentAnswer) {
-      feedbackEl.textContent = 'Correct! ✅';
-      feedbackEl.style.color = '#C9A96B';
+  function generateQuestion() {
+    const operations = ['+', '-', '*', '/'];
+    let difficulty = Math.min(20 + score*2, 100); // increase numbers as score increases
+    let num1 = Math.floor(Math.random()*difficulty) + 1;
+    let num2 = Math.floor(Math.random()*difficulty/2) + 1; 
+    const op = operations[Math.floor(Math.random()*operations.length)];
+
+    if(op === '/'){
+      num1 = num1 * num2; // ensure divisible
+      currentAnswer = +(num1 / num2).toFixed(0);
+    } else {
+      currentAnswer = eval(`${num1} ${op} ${num2}`);
+    }
+    questionEl.innerText = `${num1} ${op} ${num2} = ?`;
+
+    // generate multiple choices
+    let options = [currentAnswer];
+    while(options.length < 4){
+      let randOption = currentAnswer + Math.floor(Math.random()*10 - 5);
+      if(!options.includes(randOption)) options.push(randOption);
+    }
+    options = options.sort(() => Math.random() - 0.5);
+    
+    choicesEl.innerHTML = '';
+    options.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.innerText = opt;
+      btn.onclick = () => checkAnswer(opt);
+      choicesEl.appendChild(btn);
+    });
+  }
+
+  function checkAnswer(selected) {
+    if(selected === currentAnswer){
       score++;
     } else {
-      feedbackEl.textContent = `Wrong! ❌ Answer was ${currentAnswer}`;
-      feedbackEl.style.color = 'red';
-      score = score > 0 ? score - 1 : 0;
+      score = Math.max(0, score - 1);
     }
-    scoreEl.textContent = `Score: ${score}`;
-    setTimeout(generateQuestion, 1000);
-  });
+    scoreEl.innerText = `Score: ${score}`;
+    generateQuestion();
+  }
 
-  // Start game
-  generateQuestion();
+  function endGame() {
+    clearInterval(timerId);
+    questionEl.innerText = 'Game Over!';
+    choicesEl.innerHTML = '';
+    restartBtn.style.display = 'block';
+    if(score > highScore){
+      highScore = score;
+      localStorage.setItem('highScore', highScore);
+      highscoreEl.innerText = `High Score: ${highScore}`;
+    }
+  }
+
+  restartBtn.addEventListener('click', startGame);
+
+  startGame();
 </script>
+
 </body>
 </html>
