@@ -3,24 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Brainwave Sounds</title>
+<title>Brainwave Isochronic Tones</title>
 <link href="https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Josefin+Sans:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body, html { width:100%; height:100%; background:#141818; color:#f9f9f9; font-family:'Josefin Sans', sans-serif; }
-  .container { display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; padding:20px; text-align:center; }
-  h1 { font-family:'Cardo', serif; font-size:3rem; margin-bottom:20px; color:#C9A96B; }
-  p { font-size:1.2rem; max-width:700px; margin-bottom:40px; line-height:1.6; }
-  .buttons { display:flex; flex-wrap:wrap; gap:20px; justify-content:center; }
-  button { background:#f9f9f9; color:#141818; border:2px solid #C9A96B; padding:15px 25px; border-radius:12px; font-size:1rem; cursor:pointer; transition:all 0.3s ease; }
-  button:hover { background:#C9A96B; color:#141818; transform:scale(1.05); }
-  @media(max-width:768px){ h1{font-size:2.2rem;} p{font-size:1rem;} button{padding:12px 20px;font-size:0.9rem;} }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body,html{width:100%;height:100%;background:#141818;color:#f9f9f9;font-family:'Josefin Sans',sans-serif;}
+  .container{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:20px;text-align:center;}
+  h1{font-family:'Cardo',serif;font-size:3rem;margin-bottom:20px;color:#C9A96B;}
+  .description{font-size:1.2rem;max-width:700px;margin-bottom:40px;line-height:1.6;min-height:80px;}
+  .buttons{display:flex;flex-wrap:wrap;gap:20px;justify-content:center;}
+  button{background:#333;color:#f9f9f9;border:2px solid #C9A96B;padding:15px 25px;border-radius:12px;font-size:1rem;cursor:pointer;transition:all 0.3s ease;}
+  button:hover{background:#C9A96B;color:#141818;transform:scale(1.05);}
+  @media(max-width:768px){h1{font-size:2.2rem;}.description{font-size:1rem;}button{padding:12px 20px;font-size:0.9rem;}}
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>Brainwave Sounds</h1>
-  <p id="description">Click a frequency below to hear the brainwave tone and learn its purpose.</p>
+  <h1>Brainwave Isochronic Tones</h1>
+  <div class="description" id="description">Click a frequency below to hear its isochronic tone and learn its purpose.</div>
   <div class="buttons">
     <button data-frequency="delta">Delta (0.5–4 Hz)</button>
     <button data-frequency="theta">Theta (4–8 Hz)</button>
@@ -36,9 +36,9 @@
 <script>
 const description = document.getElementById('description');
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let oscillator = null;
+let oscillator, gainNode, intervalId;
 
-// Brainwave definitions
+// Brainwave definitions with explanations
 const brainwaves = {
   delta: { freq: 2, text: "Delta waves (0.5–4 Hz) promote deep sleep, relaxation, and healing." },
   theta: { freq: 6, text: "Theta waves (4–8 Hz) are linked to deep meditation, creativity, and memory." },
@@ -50,24 +50,40 @@ const brainwaves = {
   sigma: { freq: 14, text: "Sigma waves (12–16 Hz) appear during light sleep spindles, aiding memory consolidation." }
 };
 
-// Function to play brainwave using Web Audio API
-function playBrainwave(freq) {
+// Stop any existing tone
+function stopTone() {
   if (oscillator) oscillator.stop();
-  oscillator = audioCtx.createOscillator();
-  let gainNode = audioCtx.createGain();
-  oscillator.type = "sine";
-  oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
-  gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime); // volume
-  oscillator.connect(gainNode).connect(audioCtx.destination);
-  oscillator.start();
+  if (intervalId) clearInterval(intervalId);
 }
 
-// Add button click listeners
+// Play isochronic tone
+function playIsochronic(freq) {
+  stopTone();
+
+  oscillator = audioCtx.createOscillator();
+  gainNode = audioCtx.createGain();
+  oscillator.type = 'sine';
+  oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); // carrier frequency
+  gainNode.gain.setValueAtTime(0, audioCtx.currentTime); // start muted
+
+  oscillator.connect(gainNode).connect(audioCtx.destination);
+  oscillator.start();
+
+  // Create isochronic pulse
+  const intervalTime = 1000 / freq; // ms per pulse
+  let on = false;
+  intervalId = setInterval(() => {
+    gainNode.gain.setTargetAtTime(on ? 0.2 : 0, audioCtx.currentTime, 0.01);
+    on = !on;
+  }, intervalTime / 2);
+}
+
+// Button click listener
 document.querySelectorAll('button').forEach(btn => {
   btn.addEventListener('click', () => {
     const key = btn.dataset.frequency;
     description.textContent = brainwaves[key].text;
-    playBrainwave(brainwaves[key].freq);
+    playIsochronic(brainwaves[key].freq);
   });
 });
 </script>
