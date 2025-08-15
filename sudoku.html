@@ -6,6 +6,46 @@
   <title>Sudoku</title>
   <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600&display=swap" rel="stylesheet">
   <style>
+    .range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Track */
+.range::-webkit-slider-runnable-track {
+  height: 6px;
+  background: rgba(201,169,107,0.3); /* track color */
+  border-radius: 3px;
+}
+.range::-moz-range-track {
+  height: 6px;
+  background: rgba(201,169,107,0.3);
+  border-radius: 3px;
+}
+
+/* Thumb */
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: rgba(201,169,107,1); /* thumb color */
+  margin-top: -5px; /* center thumb vertically */
+  border: none;
+}
+.range::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: rgba(201,169,107,1);
+  border: none;
+}
+
     :root{
       --bg: #141818; /* background */
       --frame: #f9f9f9; /* frame */
@@ -49,7 +89,8 @@
     .notes{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
     .small{font-size:13px;color:var(--muted)}
     .actions{display:flex;flex-direction:column;gap:8px}
-    .select, .range{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(201, 169, 107, 1);background:transparent;color:var(--muted)}
+    .select{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(201, 169, 107, 1);background:transparent;color:var(--muted)
+           }
     .footer{margin-top:12px;text-align:center;color:var(--muted);font-size:13px}
 
     /* responsive */
@@ -63,7 +104,6 @@
   <div class="app">
     <div class="wrap" role="application">
       <header>
-        <h1>Interactive Sudoku</h1>
         <div class="controls">
           <button class="btn" id="newEasy">New Easy</button>
           <button class="btn" id="newMedium">New Medium</button>
