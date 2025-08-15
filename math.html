@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interactive Math Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg: #141818; /* page background */
+      --frame: #f9f9f9; /* text & frame */
+      --accent: #C9A96B; /* other accent */
+      --muted: rgba(249,249,249,0.12);
+      font-family: 'Josefin Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    }
+    html,body{height:100%;}
+    body{
+      margin:0;min-height:100%;background:var(--bg);color:var(--frame);display:flex;align-items:center;justify-content:center;
+      -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+    }
+    .app{
+      width:min(1100px,96vw);height:min(700px,92vh);border-radius:18px;padding:24px;box-sizing:border-box;
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border:2px solid rgba(249,249,249,0.06);backdrop-filter: blur(6px);display:grid;grid-template-columns:1fr 360px;gap:20px;
+    }
+    @media (max-width:920px){
+      .app{grid-template-columns:1fr;height:88vh;padding:18px}
+    }
+
+    /* Left: game stage */
+    .stage{padding:18px;border-radius:12px;background:transparent;display:flex;flex-direction:column;gap:14px}
+    .header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),rgba(201,169,107,0.65));display:flex;align-items:center;justify-content:center;color:var(--bg);font-weight:700}
+    h1{font-size:20px;margin:0;font-weight:700}
+    p.lead{margin:0;color:var(--frame);opacity:0.9}
+
+    .panel{background:rgba(255,255,255,0.02);border:1px solid rgba(249,249,249,0.04);padding:18px;border-radius:12px}
+    .problem{font-size:56px;font-weight:700;letter-spacing:1px}
+    .meta{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .meta .chip{padding:8px 12px;border-radius:999px;border:1px solid rgba(249,249,249,0.04);background:var(--muted);font-weight:600}
+
+    .controls{display:flex;gap:10px;align-items:center;margin-top:6px}
+    .btn{background:transparent;border:2px solid var(--frame);padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer}
+    .btn.alt{border-color:var(--accent);color:var(--accent)}
+    .btn.ghost{border-color:transparent;background:transparent}
+    .btn:active{transform:translateY(1px)}
+
+    .answer-row{display:flex;gap:12px;align-items:center}
+    input.answer{flex:1;padding:14px;border-radius:10px;border:2px solid rgba(249,249,249,0.06);background:transparent;color:var(--frame);font-size:20px;font-weight:700}
+    .num-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+    .num-pad button{padding:14px;border-radius:10px;border:1px solid rgba(249,249,249,0.04);background:transparent;font-size:18px;font-weight:700}
+
+    /* Right: sidebar */
+    .sidebar{padding:18px;border-radius:12px;background:transparent;display:flex;flex-direction:column;gap:12px}
+    .score{display:flex;flex-direction:column;gap:6px}
+    .stat{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:10px;border:1px solid rgba(249,249,249,0.03)}
+    .progress{height:10px;border-radius:999px;background:rgba(255,255,255,0.03);overflow:hidden}
+    .progress > i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--accent),rgba(201,169,107,0.85));}
+
+    .ops{display:flex;gap:8px;flex-wrap:wrap}
+    .ops button{padding:8px 12px;border-radius:10px;border:1px solid rgba(249,249,249,0.04);background:transparent;font-weight:700}
+
+    .footer{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:auto}
+    .small{font-size:13px;opacity:0.85}
+
+    /* feedback */
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:36px;padding:12px 18px;border-radius:12px;background:rgba(0,0,0,0.6);color:var(--frame);font-weight:700;display:none}
+
+    /* micro animations */
+    .correct{box-shadow:0 6px 20px rgba(201,169,107,0.12);border-color:rgba(201,169,107,0.4)}
+    .shake{animation:shake .4s}
+    @keyframes shake{0%{transform:translateX(0)}20%{transform:translateX(-6px)}60%{transform:translateX(6px)}100%{transform:translateX(0)}}
+
+    /* responsive smaller fonts */
+    @media (max-width:540px){.problem{font-size:40px}}
+  </style>
+</head>
+<body>
+  <div class="app" role="application">
+    <div class="stage">
+      <div class="header">
+        <div class="brand">
+          <div class="logo">MG</div>
+          <div>
+            <h1>Math Garden — Train Your Brain</h1>
+            <p class="lead">Quick, fun, and responsive math drills. Improve accuracy & speed.</p>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="chip">Lives: <span id="lives">5</span></div>
+          <div class="chip">Streak: <span id="streak">0</span></div>
+          <div class="chip">Time: <span id="timer">--:--</span></div>
+        </div>
+      </div>
+
+      <div class="panel" id="gamePanel" aria-live="polite">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div class="problem" id="problem">3 + 4 = ?</div>
+          <div style="text-align:right">
+            <div class="small">Difficulty</div>
+            <div class="chip" id="difficulty">Easy</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="answer-row" style="flex:1">
+            <input inputmode="numeric" pattern="[0-9]*" id="answerInput" class="answer" placeholder="Type answer or use keypad" autocomplete="off">
+            <button id="submitBtn" class="btn">Submit</button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="startBtn" class="btn alt">Start</button>
+            <button id="pauseBtn" class="btn ghost">Pause</button>
+          </div>
+        </div>
+
+        <div class="num-pad" id="numpad">
+          <button class="pad">1</button><button class="pad">2</button><button class="pad">3</button>
+          <button class="pad">4</button><button class="pad">5</button><button class="pad">6</button>
+          <button class="pad">7</button><button class="pad">8</button><button class="pad">9</button>
+          <button class="pad">0</button><button id="backspace" class="pad">⌫</button><button id="enterPad" class="pad">Enter</button>
+        </div>
+
+        <div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <div class="small">Tip: press <strong>Enter</strong> to submit. Use keyboard or on-screen keypad.</div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="sidebar">
+      <div class="panel score">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div class="small">Score</div>
+            <div style="font-size:28px;font-weight:800"> <span id="score">0</span></div>
+          </div>
+          <div style="text-align:right">
+            <div class="small">Best</div>
+            <div style="font-weight:800"> <span id="best">0</span></div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="small">Round Progress</div>
+          <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="small">Operations</div>
+        <div class="ops" id="ops">
+          <button data-op="+" class="op active">+</button>
+          <button data-op="-" class="op">−</button>
+          <button data-op="*" class="op">×</button>
+          <button data-op="/" class="op">÷</button>
+        </div>
+
+        <div style="margin-top:12px" class="small">Difficulty</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="easy" class="btn">Easy</button>
+          <button id="med" class="btn">Medium</button>
+          <button id="hard" class="btn">Hard</button>
+        </div>
+      </div>
+
+      <div class="panel small">
+        <div style="display:flex;justify-content:space-between"><div>Round: <strong id="round">1</strong></div><div>Questions: <strong id="qcount">0</strong></div></div>
+        <div style="margin-top:8px">Controls: Start / Pause / Submit / Enter / On-screen keypad</div>
+      </div>
+
+      <div class="footer">
+        <div class="small">Made with ♥ — Josefin Sans</div>
+        <div>
+          <button id="fullscreenBtn" class="btn">Fullscreen</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // Game state
+    const state = {
+      score: 0, best: 0, lives: 5, streak: 0, round: 1, qcount: 0, difficulty: 'Easy', ops: ['+'], running: false, timeLeft: 180, timerId: null
+    };
+
+    // DOM
+    const problemEl = document.getElementById('problem');
+    const answerInput = document.getElementById('answerInput');
+    const submitBtn = document.getElementById('submitBtn');
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const livesEl = document.getElementById('lives');
+    const streakEl = document.getElementById('streak');
+    const scoreEl = document.getElementById('score');
+    const bestEl = document.getElementById('best');
+    const difficultyEl = document.getElementById('difficulty');
+    const progressBar = document.getElementById('progressBar');
+    const opsEl = document.getElementById('ops');
+    const roundEl = document.getElementById('round');
+    const qcountEl = document.getElementById('qcount');
+    const timerEl = document.getElementById('timer');
+    const toast = document.getElementById('toast');
+
+    // numpad
+    document.querySelectorAll('.pad').forEach(btn=>btn.addEventListener('click',e=>{
+      const v = e.target.textContent.trim();
+      if(v==='Enter') return submitAnswer();
+      if(v==='⌫') { answerInput.value = answerInput.value.slice(0,-1); return; }
+      answerInput.value += v;
+      answerInput.focus();
+    }));
+
+    document.getElementById('enterPad').addEventListener('click',submitAnswer);
+    document.getElementById('backspace').addEventListener('click',()=>answerInput.value = answerInput.value.slice(0,-1));
+
+    // operations selection
+    opsEl.addEventListener('click',e=>{
+      if(e.target.matches('button')){
+        e.target.classList.toggle('active');
+        updateOps();
+      }
+    });
+
+    function updateOps(){
+      const actives = Array.from(document.querySelectorAll('.op.active')).map(b=>b.dataset.op);
+      state.ops = actives.length?actives:['+'];
+    }
+
+    // difficulty buttons
+    document.getElementById('easy').addEventListener('click',()=>setDifficulty('Easy'));
+    document.getElementById('med').addEventListener('click',()=>setDifficulty('Medium'));
+    document.getElementById('hard').addEventListener('click',()=>setDifficulty('Hard'));
+
+    function setDifficulty(d){state.difficulty = d; difficultyEl.textContent = d;}
+
+    // start / pause
+    startBtn.addEventListener('click',()=>{
+      if(!state.running){startRound();} else {resetGame();}
+    });
+    pauseBtn.addEventListener('click',()=>{
+      if(!state.running) return; clearInterval(state.timerId); state.running=false; pauseBtn.textContent='Resume'; showToast('Paused');
+    });
+
+    function startRound(){
+      state.running = true; state.timeLeft = 180; startBtn.textContent='Restart'; pauseBtn.textContent='Pause';
+      state.lives = 5; state.streak = 0; state.score = 0; state.qcount = 0; state.round = 1;
+      updateHUD(); nextProblem(); startTimer();
+    }
+
+    function resetGame(){
+      clearInterval(state.timerId); state.running=false; startBtn.textContent='Start'; pauseBtn.textContent='Pause';
+      showToast('Game reset');
+      state.lives = 5; state.streak = 0; state.score = 0; state.qcount = 0; state.round = 1; updateHUD(); problemEl.textContent='Press Start to play';
+    }
+
+    function startTimer(){
+      clearInterval(state.timerId);
+      state.timerId = setInterval(()=>{ if(!state.running) return; state.timeLeft--; updateTimer(); if(state.timeLeft<=0){endGame('Time up');}},1000);
+      updateTimer();
+    }
+
+    function updateTimer(){
+      const m = Math.floor(state.timeLeft/60).toString().padStart(2,'0');
+      const s = (state.timeLeft%60).toString().padStart(2,'0');
+      timerEl.textContent = `${m}:${s}`;
+    }
+
+    function nextProblem(){
+      const prob = generateProblem();
+      state.current = prob; state.qcount++; qcountEl.textContent = state.qcount;
+      problemEl.textContent = `${prob.left} ${prob.op} ${prob.right} = ?`;
+      difficultyEl.textContent = state.difficulty;
+      answerInput.value=''; answerInput.focus();
+      updateProgress();
+    }
+
+    function generateProblem(){
+      const ops = state.ops; const op = ops[Math.floor(Math.random()*ops.length)];
+      let a,b; const diff = state.difficulty;
+      if(diff==='Easy'){ a = rand(1,12); b = rand(1,12); }
+      else if(diff==='Medium'){ a = rand(5,40); b = rand(2,20); }
+      else { a = rand(10,120); b = rand(5,80); }
+      // adjust for division to make integer results
+      if(op==='/'){
+        b = rand(2, (diff==='Easy'?8: (diff==='Medium'?12:30)));
+        const prod = a * b; // a used as multiplier
+        return {left: prod, right: b, op:'/', answer: a};
+      }
+      const ans = evalOp(a,b,op);
+      return {left:a,right:b,op,answer:ans};
+    }
+
+    function evalOp(a,b,op){ if(op==='+')return a+b; if(op==='-')return a-b; if(op==='*')return a*b; if(op==='/')return Math.round(a/b); }
+    function rand(min,max){return Math.floor(Math.random()*(max-min+1))+min}
+
+    // submit
+    submitBtn.addEventListener('click',submitAnswer);
+    answerInput.addEventListener('keydown',e=>{ if(e.key==='Enter') submitAnswer(); if(e.key==='Escape') answerInput.value=''; });
+
+    function submitAnswer(){
+      if(!state.running){ showToast('Start the game first'); return; }
+      const raw = answerInput.value.trim(); if(raw==='') return; const user = Number(raw);
+      const correct = Number(state.current.answer);
+      if(Number.isNaN(user)) { showToast('Please enter a number'); return; }
+      state.qcount++;
+      if(user === correct){
+        state.score += 10 + Math.floor(state.timeLeft/30);
+        state.streak += 1; state.lives = Math.min(state.lives+ (state.streak%5===0?1:0), 9);
+        showFeedback(true);
+      } else {
+        state.lives -= 1; state.streak = 0; showFeedback(false, correct);
+        if(state.lives<=0){ endGame('No lives left'); return; }
+      }
+      state.best = Math.max(state.best, state.score);
+      updateHUD(); nextProblem();
+    }
+
+    function showFeedback(ok, correct){
+      const panel = document.getElementById('gamePanel');
+      if(ok){ panel.classList.add('correct'); setTimeout(()=>panel.classList.remove('correct'),280); showToast('Correct! +'+(10+Math.floor(state.timeLeft/30))); }
+      else{ panel.classList.add('shake'); setTimeout(()=>panel.classList.remove('shake'),420); showToast('Wrong — answer: '+correct); }
+    }
+
+    function updateHUD(){
+      livesEl.textContent = state.lives; streakEl.textContent = state.streak; scoreEl.textContent = state.score; bestEl.textContent = state.best; roundEl.textContent = state.round; qcountEl.textContent = state.qcount;
+      const pct = Math.min(100, (state.qcount%10)*10); progressBar.style.width = pct + '%';
+    }
+
+    function updateProgress(){ const pct = Math.min(100, (state.qcount%10)*10); progressBar.style.width = pct + '%'; }
+
+    function endGame(reason){ clearInterval(state.timerId); state.running=false; showToast('Game over — '+reason); startBtn.textContent='Start'; }
+
+    // fullscreen
+    document.getElementById('fullscreenBtn').addEventListener('click',()=>{
+      const el = document.documentElement;
+      if(!document.fullscreenElement){ el.requestFullscreen?.(); } else { document.exitFullscreen?.(); }
+    });
+
+    // toast
+    let tt; function showToast(msg,ms=1600){ toast.textContent=msg; toast.style.display='block'; clearTimeout(tt); tt=setTimeout(()=>toast.style.display='none',ms); }
+
+    // keyboard shortcuts
+    window.addEventListener('keydown',e=>{
+      if(e.key==='F' || e.key==='f'){ document.getElementById('fullscreenBtn').click(); }
+      if(e.key===' '){ e.preventDefault(); if(!state.running) startBtn.click(); else pauseBtn.click(); }
+    });
+
+    // init
+    problemEl.textContent = 'Press Start to play'; difficultyEl.textContent = state.difficulty;
+    updateHUD();
+  </script>
+</body>
+</html>
