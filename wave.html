@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brainwave Sounds</title>
+<link href="https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Josefin+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body, html { width:100%; height:100%; background:#141818; color:#f9f9f9; font-family:'Josefin Sans', sans-serif; }
+  .container { display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; padding:20px; text-align:center; }
+  h1 { font-family:'Cardo', serif; font-size:3rem; margin-bottom:20px; color:#C9A96B; }
+  p { font-size:1.2rem; max-width:700px; margin-bottom:40px; line-height:1.6; }
+  .buttons { display:flex; flex-wrap:wrap; gap:20px; justify-content:center; }
+  button { background:#f9f9f9; color:#141818; border:2px solid #C9A96B; padding:15px 25px; border-radius:12px; font-size:1rem; cursor:pointer; transition:all 0.3s ease; }
+  button:hover { background:#C9A96B; color:#141818; transform:scale(1.05); }
+  @media(max-width:768px){ h1{font-size:2.2rem;} p{font-size:1rem;} button{padding:12px 20px;font-size:0.9rem;} }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Brainwave Sounds</h1>
+  <p id="description">Click a frequency below to hear the brainwave tone and learn its purpose.</p>
+  <div class="buttons">
+    <button data-frequency="delta">Delta (0.5–4 Hz)</button>
+    <button data-frequency="theta">Theta (4–8 Hz)</button>
+    <button data-frequency="alpha">Alpha (8–12 Hz)</button>
+    <button data-frequency="lowBeta">Low Beta (12–15 Hz)</button>
+    <button data-frequency="highBeta">High Beta (15–30 Hz)</button>
+    <button data-frequency="gamma">Gamma (30–100 Hz)</button>
+    <button data-frequency="mu">Mu (8–13 Hz)</button>
+    <button data-frequency="sigma">Sigma (12–16 Hz)</button>
+  </div>
+</div>
+
+<script>
+const description = document.getElementById('description');
+let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let oscillator = null;
+
+// Brainwave definitions
+const brainwaves = {
+  delta: { freq: 2, text: "Delta waves (0.5–4 Hz) promote deep sleep, relaxation, and healing." },
+  theta: { freq: 6, text: "Theta waves (4–8 Hz) are linked to deep meditation, creativity, and memory." },
+  alpha: { freq: 10, text: "Alpha waves (8–12 Hz) improve calmness, focus, and stress reduction." },
+  lowBeta: { freq: 14, text: "Low Beta waves (12–15 Hz) enhance alertness and problem-solving." },
+  highBeta: { freq: 20, text: "High Beta waves (15–30 Hz) increase concentration and cognitive activity." },
+  gamma: { freq: 40, text: "Gamma waves (30–100 Hz) support learning, memory, and higher mental activity." },
+  mu: { freq: 10, text: "Mu waves (8–13 Hz) relate to motor control and mirror neuron activity." },
+  sigma: { freq: 14, text: "Sigma waves (12–16 Hz) appear during light sleep spindles, aiding memory consolidation." }
+};
+
+// Function to play brainwave using Web Audio API
+function playBrainwave(freq) {
+  if (oscillator) oscillator.stop();
+  oscillator = audioCtx.createOscillator();
+  let gainNode = audioCtx.createGain();
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime); // volume
+  oscillator.connect(gainNode).connect(audioCtx.destination);
+  oscillator.start();
+}
+
+// Add button click listeners
+document.querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const key = btn.dataset.frequency;
+    description.textContent = brainwaves[key].text;
+    playBrainwave(brainwaves[key].freq);
+  });
+});
+</script>
+</body>
+</html>
