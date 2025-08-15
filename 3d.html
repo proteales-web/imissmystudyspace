@@ -1,17 +1,19 @@
 <style>
   model-viewer {
-    width: 100vw;     /* full width of the screen */
-    height: 100vh;    /* full height of the screen */
-    max-width: 100%;  /* prevent overflow */
+    width: 100vw;
+    height: 100vh;
+    max-width: 100%;
     max-height: 100%;
   }
 </style>
 
 <model-viewer 
+  id="brainViewer"
   src="brain1.glb" 
   alt="Brain 3D Model" 
   auto-rotate 
-  camera-controls>
+  camera-controls
+  exposure="1.0">
 </model-viewer>
 
 <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
@@ -20,7 +22,12 @@
   const viewer = document.querySelector('#brainViewer');
 
   viewer.addEventListener('load', () => {
-    const material = viewer.model.materials[0]; // First material in the model
-    material.pbrMetallicRoughness.setBaseColorFactor([0.788, 0.663, 0.420, 1]);
+    const materials = viewer.model.materials;
+    materials.forEach(mat => {
+      // Remove texture so color shows clearly
+      mat.pbrMetallicRoughness.baseColorTexture = null;
+      // Set new base color (#C9A96B → 0–1 values)
+      mat.pbrMetallicRoughness.setBaseColorFactor([0.788, 0.663, 0.420, 1]);
+    });
   });
 </script>
