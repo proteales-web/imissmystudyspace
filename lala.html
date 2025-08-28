@@ -1,212 +1,91 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>3D Museum Explorer — test.glb</title>
+  <title>AR Camera — test.glb</title>
+
+  <!-- model-viewer (Google) -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+
   <style>
-    html,body{height:100%;margin:0;background:#111;color:#eee;font-family:Inter,Arial}
-    #blocker{position:absolute;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:5;cursor:pointer}
-    #instructions{max-width:680px;padding:20px;text-align:center}
-    canvas{display:block}
-    #hud{position:fixed;right:12px;top:12px;background:rgba(0,0,0,0.6);padding:10px;border-radius:8px;min-width:180px;font-size:13px;z-index:6}
-    #hud b{display:block;margin-bottom:6px}
-    #hud .line{font-family:monospace}
-    #message{position:fixed;left:12px;bottom:12px;background:rgba(0,0,0,0.6);padding:10px;border-radius:8px;font-size:13px;z-index:6}
-    a.small{color:#9cf;text-decoration:underline}
+    html,body { height:100%; margin:0; background:#000; }
+    model-viewer { width:100vw; height:100vh; display:block; }
+    /* tombol custom kecil untuk desktop testing */
+    #info {
+      position: fixed;
+      left: 12px;
+      top: 12px;
+      z-index: 9;
+      background: rgba(0,0,0,0.45);
+      color: #fff;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      font-size: 13px;
+      line-height:1.3;
+    }
+    a.link { color: #9cf; text-decoration: none; margin-left:6px; }
   </style>
 </head>
 <body>
-  <div id="blocker"><div id="instructions"><h2>Click to enter the Museum</h2>
-    <div>Controls: <b>W A S D</b> to walk, <b>Mouse</b> to look around, <b>Esc</b> to unlock. Press <b>C</b> to toggle console.</div>
-  </div></div>
 
-  <div id="hud" aria-live="polite">
-    <b>Explorer Console</b>
-    <div class="line" id="pos">pos: —</div>
-    <div class="line" id="inside">status: —</div>
-    <div style="margin-top:8px;font-size:12px">Bounding box: <span id="bbox">—</span></div>
+  <div id="info">
+    Buka di ponsel untuk AR. Controls: pinch to scale / drag to rotate. 
+    <div style="margin-top:6px;font-size:12px;opacity:.9">
+      Android: Chrome &rarr; <b>View in your space</b> (Scene Viewer). 
+      iOS: Safari &rarr; <b>AR</b> (Quick Look, but membutuhkan .usdz).
+    </div>
   </div>
-  <div id="message">Loading model: <span id="loading">test.glb</span></div>
 
-  <script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.164.0/build/three.module.js';
-    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.164.0/examples/jsm/loaders/GLTFLoader.js';
-    import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.164.0/examples/jsm/controls/PointerLockControls.js';
+  <!-- model-viewer:
+       - src: glb model
+       - ios-src: usdz for iOS Quick Look (optional, but recommended)
+       - ar: enable AR
+       - ar-modes: try WebXR, Scene Viewer (Android), Quick Look (iOS)
+       - camera-controls: for desktop orbiting
+       - auto-rotate: optional
+  -->
+  <model-viewer id="mv"
+                src="test.glb"
+                ios-src="test.usdz"
+                alt="Test 3D Model"
+                ar
+                ar-modes="webxr scene-viewer quick-look"
+                camera-controls
+                auto-rotate
+                exposure="1"
+                shadow-intensity="1"
+                interaction-prompt="auto"
+                style="background: #111;">
+  </model-viewer>
 
-    let camera, scene, renderer, controls;
-    let move = { forward:false, backward:false, left:false, right:false };
-    let velocity = new THREE.Vector3();
-    let direction = new THREE.Vector3();
-    let museumBox = null; // THREE.Box3
-    const cameraHeight = 1.6; // meters
+  <script>
+    // Small helpers to report AR availability and show friendly messages in console
+    const mv = document.getElementById('mv');
 
-    const hud = document.getElementById('hud');
-    const posEl = document.getElementById('pos');
-    const insideEl = document.getElementById('inside');
-    const bboxEl = document.getElementById('bbox');
-    const messageEl = document.getElementById('message');
-    const loadingEl = document.getElementById('loading');
-    const blocker = document.getElementById('blocker');
-
-    init();
-    animate();
-
-    function init(){
-      // Renderer
-      renderer = new THREE.WebGLRenderer({ antialias:true });
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
-
-      // Scene + Camera
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x222222);
-      camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 5000);
-
-      // Lights
-      const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
-      hemi.position.set(0, 50, 0);
-      scene.add(hemi);
-      const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-      dir.position.set(10,20,10);
-      scene.add(dir);
-
-      // Controls
-      controls = new PointerLockControls(camera, document.body);
-      controls.getObject().position.set(0, cameraHeight, 0);
-      scene.add(controls.getObject());
-
-      // Pointer lock UI
-      blocker.addEventListener('click', () => controls.lock());
-      controls.addEventListener('lock', () => blocker.style.display = 'none');
-      controls.addEventListener('unlock', () => blocker.style.display = 'flex');
-
-      // Movement keys
-      document.addEventListener('keydown', (e)=>{
-        switch(e.code){
-          case 'KeyW': move.forward = true; break;
-          case 'KeyS': move.backward = true; break;
-          case 'KeyA': move.left = true; break;
-          case 'KeyD': move.right = true; break;
-          case 'KeyC': toggleHUD(); break;
-        }
-      });
-      document.addEventListener('keyup', (e)=>{
-        switch(e.code){
-          case 'KeyW': move.forward = false; break;
-          case 'KeyS': move.backward = false; break;
-          case 'KeyA': move.left = false; break;
-          case 'KeyD': move.right = false; break;
-        }
-      });
-
-      // Load the museum glb
-      const loader = new GLTFLoader();
-      loadingEl.textContent = 'test.glb';
-      loader.load('test.glb', (gltf) => {
-        const museum = gltf.scene || gltf.scenes[0];
-        museum.name = 'MuseumRoot';
-        scene.add(museum);
-
-        // Compute bounding box of the whole museum model
-        museumBox = new THREE.Box3().setFromObject(museum);
-        // Slightly inset so the camera doesn't hug the walls
-        museumBox.inset = 0.5; // custom property for info
-        const inset = 0.5;
-        const innerBox = museumBox.clone().expandByScalar(-inset);
-
-        // place camera inside museum: center XZ, just above floor
-        const center = museumBox.getCenter(new THREE.Vector3());
-        const floorY = museumBox.min.y;
-        controls.getObject().position.set(center.x, floorY + cameraHeight + 0.1, center.z);
-
-        // Save innerBox on global var
-        museumBox.inner = innerBox;
-
-        // Update HUD info
-        bboxEl.textContent = `min(${museumBox.min.x.toFixed(1)}, ${museumBox.min.y.toFixed(1)}, ${museumBox.min.z.toFixed(1)}) — max(${museumBox.max.x.toFixed(1)}, ${museumBox.max.y.toFixed(1)}, ${museumBox.max.z.toFixed(1)})`;
-        loadingEl.textContent = 'loaded';
-        messageEl.style.display = 'none';
-
-      }, (xhr)=>{
-        // progress
-        if (xhr && xhr.loaded && xhr.total) loadingEl.textContent = `loading ${(xhr.loaded/xhr.total*100).toFixed(0)}%`;
-      }, (err)=>{
-        loadingEl.textContent = 'failed to load test.glb — check path';
-        console.error('GLTF load error', err);
-      });
-
-      // Window resize
-      window.addEventListener('resize', onWindowResize);
-    }
-
-    function onWindowResize(){
-      camera.aspect = window.innerWidth/window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-
-    function toggleHUD(){
-      hud.style.display = hud.style.display === 'none' ? 'block' : 'none';
-    }
-
-    // Simple physics-like movement and bounding enforcement
-    let prevTime = performance.now();
-    function animate(){
-      requestAnimationFrame(animate);
-      const time = performance.now();
-      const delta = (time - prevTime) / 1000;
-      prevTime = time;
-
-      // apply friction
-      velocity.x -= velocity.x * 10.0 * delta;
-      velocity.z -= velocity.z * 10.0 * delta;
-
-      direction.z = Number(move.forward) - Number(move.backward);
-      direction.x = Number(move.right) - Number(move.left);
-      direction.normalize();
-
-      const speed = 3.5; // m/s
-      if (move.forward || move.backward) velocity.z -= direction.z * speed * delta;
-      if (move.left || move.right) velocity.x -= direction.x * speed * delta;
-
-      // compute forward/right in world space
-      const euler = new THREE.Euler( 0, camera.rotation.y, 0, 'YXZ' );
-      const forward = new THREE.Vector3(0,0,-1).applyEuler(euler).setY(0).normalize();
-      const right = new THREE.Vector3(1,0,0).applyEuler(euler).setY(0).normalize();
-
-      const moveDelta = new THREE.Vector3();
-      moveDelta.addScaledVector(forward, -velocity.z * delta);
-      moveDelta.addScaledVector(right, -velocity.x * delta);
-
-      // apply move
-      const obj = controls.getObject();
-      obj.position.add(moveDelta);
-
-      // enforce museum bounding box
-      if (museumBox && museumBox.inner){
-        const inner = museumBox.inner;
-        // clamp XZ and keep Y above floor
-        const clamped = inner.clampPoint(obj.position.clone(), new THREE.Vector3());
-        // keep camera height constant relative to floor
-        clamped.y = Math.max(clamped.y, museumBox.min.y + cameraHeight + 0.05);
-        obj.position.copy(clamped);
+    // When model is loaded, log bbox & sizes
+    mv.addEventListener('load', (ev) => {
+      console.log('Model loaded:', ev);
+      // Try to access model info
+      if (mv.model) {
+        const box = new THREE.Box3().setFromObject(mv.model);
+        console.log('Model bounds:', box.min, box.max);
       }
+    });
 
-      // update HUD with camera position and status
-      const p = controls.getObject().position;
-      posEl.textContent = `pos: x ${p.x.toFixed(2)} y ${p.y.toFixed(2)} z ${p.z.toFixed(2)}`;
-      if (museumBox){
-        const inside = museumBox.containsPoint ? museumBox.containsPoint(p) : museumBox.inner.containsPoint(p);
-        insideEl.textContent = `status: ${inside ? 'INSIDE' : 'OUTSIDE'}`;
-      } else {
-        insideEl.textContent = 'status: model not loaded';
-      }
+    // AR status events
+    mv.addEventListener('ar-status', (e) => {
+      console.log('AR status:', e.detail.status);
+    });
 
-      renderer.render(scene, camera);
-    }
+    // If WebXR not available, model-viewer will show other AR buttons automatically.
+    mv.addEventListener('error', (e) => {
+      console.error('model-viewer error:', e);
+    });
 
+    // Optional: programmatically start AR (requires user gesture) — kept commented:
+    // document.addEventListener('click', () => mv.activateAR());
   </script>
 </body>
 </html>
