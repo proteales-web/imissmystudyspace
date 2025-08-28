@@ -44,6 +44,7 @@
       flex-direction:column;
       align-items:stretch;
       overflow:hidden;
+      position:relative;
     }
     .canvasWrap{
       width:100%;
@@ -85,6 +86,36 @@
       cursor:pointer;
       font-weight:600;
     }
+
+    /* status overlay */
+    .statusOverlay{
+      position:absolute;
+      left:12px;
+      top:12px;
+      z-index:20;
+      padding:8px 10px;
+      border-radius:8px;
+      background: rgba(255,255,255,0.85);
+      color: #5a2f20;
+      font-weight:700;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      pointer-events:none;
+    }
+    .errorOverlay{
+      position:absolute;
+      right:12px;
+      top:12px;
+      z-index:21;
+      padding:10px 12px;
+      border-radius:8px;
+      background: rgba(255,200,190,0.98);
+      color: #7a2b2b;
+      font-weight:700;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+      display:none;
+    }
+    .errorOverlay.show{ display:block; }
+
     .quizCard{
       background:linear-gradient(180deg, #fffdf8, #fff6ea);
       border-radius:16px;
@@ -161,7 +192,10 @@
 <body>
   <div class="page">
     <div class="viewerCard">
-      <div id="canvasWrap" class="canvasWrap"></div>
+      <div id="canvasWrap" class="canvasWrap">
+        <div id="status" class="statusOverlay">Memuat scene...</div>
+        <div id="error" class="errorOverlay"></div>
+      </div>
       <div class="controlsRow">
         <button id="resetView" class="btnGhost">Reset View</button>
         <button id="toggleAuto" class="btn">Putar Otomatis</button>
@@ -215,7 +249,7 @@
         <div class="explanation" id="exp3"></div>
       </div>
 
-      <!-- Pertanyaan tambahan dimulai di sini -->
+      <!-- Pertanyaan tambahan -->
       <div class="question" data-q="4">
         <div class="qText">Di museum mana salah satu versi terkenal The Thinker dapat dilihat?</div>
         <div class="options">
@@ -248,7 +282,6 @@
         </div>
         <div class="explanation" id="exp6"></div>
       </div>
-      <!-- Pertanyaan tambahan selesai -->
 
       <div style="display:flex; gap:12px; margin-top:8px; justify-content:flex-end;">
         <button id="checkAnswers" class="btn">Periksa Jawaban</button>
@@ -263,22 +296,27 @@
     import { OrbitControls } from 'https://unpkg.com/three@0.152.0/examples/jsm/controls/OrbitControls.js';
 
     const wrap = document.getElementById('canvasWrap');
+    const statusEl = document.getElementById('status');
+    const errorEl = document.getElementById('error');
 
+    // Scene, camera, renderer
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf6eee0);
 
     const camera = new THREE.PerspectiveCamera(45, wrap.clientWidth / wrap.clientHeight, 0.1, 2000);
-    camera.position.set(0, 1.4, 3);
+    camera.position.set(0, 1.6, 3.2);
 
-    const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(wrap.clientWidth, wrap.clientHeight);
-    renderer.physicallyCorrectLights = true;
     renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.physicallyCorrectLights = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.shadowMap.enabled = true;
     wrap.appendChild(renderer.domElement);
 
-    const hemi = new THREE.HemisphereLight(0xfff6ea, 0x8b6a58, 0.6);
+    // Lighting
+    const hemi = new THREE.HemisphereLight(0xfff6ea, 0x8b6a58, 0.7);
     scene.add(hemi);
 
     const dir = new THREE.DirectionalLight(0xffcfa6, 0.9);
@@ -291,6 +329,7 @@
     fill.position.set(-5, 2, -3);
     scene.add(fill);
 
+    // ground
     const groundGeo = new THREE.CircleGeometry(6, 64);
     const groundMat = new THREE.MeshStandardMaterial({ color: 0xf2e6d7, roughness: 0.85, metalness: 0.0 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -299,14 +338,122 @@
     ground.receiveShadow = true;
     scene.add(ground);
 
+    // controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.minDistance = 0.8;
+    controls.dampingFactor = 0.06;
+    controls.minDistance = 0.6;
     controls.maxDistance = 10;
     controls.target.set(0, 1.0, 0);
 
+    // root group - model or fallback placeholder will be added here
+    const rootGroup = new THREE.Group();
+    scene.add(rootGroup);
+
+    // --- PLACEHOLDER: cube, axes, grid (guarantees visible 3D) ---
+    const placeholder = new THREE.Group();
+    const boxGeo = new THREE.BoxGeometry(0.6, 0.9, 0.45);
+    const boxMat = new THREE.MeshStandardMaterial({ metalness: 0.25, roughness: 0.4 });
+    const box = new THREE.Mesh(boxGeo, boxMat);
+    box.castShadow = true;
+    box.position.y = 0.55;
+    placeholder.add(box);
+
+    const axes = new THREE.AxesHelper(1.1);
+    placeholder.add(axes);
+
+    const grid = new THREE.GridHelper(4, 12, 0xbbb2a6, 0xf0e7de);
+    grid.position.y = 0.001;
+    placeholder.add(grid);
+
+    rootGroup.add(placeholder);
+
+    // loader & attempt to load GLB
+    let modelLoaded = false;
     let mixer = null;
+
+    const loader = new GLTFLoader();
+
+    // progress helper
+    function setStatus(text){
+      statusEl.textContent = text;
+    }
+    function showError(text){
+      errorEl.textContent = text;
+      errorEl.classList.add('show');
+    }
+    setStatus('Memuat scene — placeholder ditampilkan');
+
+    loader.load(
+      'test.glb',
+      (gltf) => {
+        try {
+          // remove placeholder only when model fully parsed
+          rootGroup.remove(placeholder);
+
+          const model = gltf.scene || gltf.scenes[0];
+          model.traverse((o) => {
+            if (o.isMesh) {
+              o.castShadow = true;
+              o.receiveShadow = true;
+              if (Array.isArray(o.material)) {
+                o.material.forEach(m => { if (m) m.needsUpdate = true; });
+              } else if (o.material) {
+                o.material.needsUpdate = true;
+              }
+            }
+          });
+
+          // center & scale model to comfortable size
+          const box3 = new THREE.Box3().setFromObject(model);
+          const size = box3.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z);
+          if (maxDim > 0) {
+            const scale = 1.2 / maxDim;
+            model.scale.setScalar(scale);
+          }
+
+          // reposition model so its base sits near ground
+          box3.setFromObject(model);
+          const minY = box3.min.y;
+          model.position.y = model.position.y - minY;
+
+          rootGroup.add(model);
+          modelLoaded = true;
+          setStatus('Model dimuat: test.glb');
+          // animations
+          if (gltf.animations && gltf.animations.length) {
+            mixer = new THREE.AnimationMixer(model);
+            gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
+          }
+        } catch (e) {
+          console.error('Error saat menambahkan model ke scene', e);
+          showError('Gagal menambahkan model ke scene — lihat console');
+          setStatus('Placeholder tampil (model parsing error)');
+        }
+      },
+      (xhr) => {
+        if (xhr && xhr.total) {
+          const pct = (xhr.loaded / xhr.total * 100).toFixed(0);
+          setStatus('Memuat model test.glb: ' + pct + '%');
+        } else {
+          setStatus('Memuat model test.glb...');
+        }
+      },
+      (err) => {
+        console.error('Gagal memuat model test.glb', err);
+        // show helpful error message
+        let msg = 'Gagal memuat test.glb. Cek path, server (gunakan http), atau CORS. Placeholder tampil.';
+        // if error has message about Draco, add hint
+        if (err && err.message && err.message.toLowerCase().includes('draco')) {
+          msg += ' Jika file terkompresi DRACO, pasang DRACOLoader.';
+        }
+        showError(msg);
+        setStatus('Placeholder tampil (model gagal dimuat)');
+      }
+    );
+
+    // auto-rotate control (rotate rootGroup)
     let autoRotate = false;
     document.getElementById('toggleAuto').addEventListener('click', () => {
       autoRotate = !autoRotate;
@@ -315,82 +462,50 @@
 
     document.getElementById('resetView').addEventListener('click', () => {
       controls.reset();
-      camera.position.set(0, 1.4, 3);
+      camera.position.set(0, 1.6, 3.2);
       controls.target.set(0, 1.0, 0);
+      setStatus(modelLoaded ? 'Model tersedia' : 'Placeholder tampil');
     });
 
-    const loader = new GLTFLoader();
-    loader.load('test.glb', (gltf) => {
-      const model = gltf.scene;
-      model.traverse((o) => {
-        if (o.isMesh) {
-          o.castShadow = true;
-          o.receiveShadow = true;
-          if (o.material) {
-            o.material.side = THREE.FrontSide;
-            o.material.needsUpdate = true;
-          }
-        }
-      });
-
-      // scale model to comfortable size
-      const box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z);
-      if (maxDim > 0) {
-        const scale = 1.2 / maxDim;
-        model.scale.setScalar(scale);
-      }
-
-      model.position.y = 0;
-      scene.add(model);
-
-      // add subtle rim light to model
-      const rim = new THREE.SpotLight(0xffe7d0, 0.25, 10, Math.PI / 6);
-      rim.position.set(-2, 3, 1.5);
-      scene.add(rim);
-
-      // optional animation
-      if (gltf.animations && gltf.animations.length) {
-        mixer = new THREE.AnimationMixer(model);
-        gltf.animations.forEach((clip) => {
-          mixer.clipAction(clip).play();
-        });
-      }
-    }, undefined, (err) => {
-      console.warn('Gagal memuat model', err);
-    });
-
+    // animation loop
     const clock = new THREE.Clock();
     function animate() {
       requestAnimationFrame(animate);
       const dt = clock.getDelta();
       if (mixer) mixer.update(dt);
-      if (autoRotate) {
-        scene.rotation.y += 0.003;
-      }
+      if (autoRotate) rootGroup.rotation.y += 0.006;
       controls.update();
       renderer.render(scene, camera);
     }
     animate();
 
+    // handle resize
     window.addEventListener('resize', () => {
       camera.aspect = wrap.clientWidth / wrap.clientHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(wrap.clientWidth, wrap.clientHeight);
     });
+
+    // quick debug: if WebGL not supported, show message
+    if (!renderer.capabilities.isWebGL2 && !renderer.capabilities.isWebGL) {
+      showError('Browser tidak mendukung WebGL. Gunakan browser modern (Chrome/Firefox/Edge).');
+    }
+
+    // helpful console hints
+    console.info('Viewer siap. Jika test.glb tidak muncul, periksa: (1) path test.glb, (2) jalankan lewat server HTTP, (3) buka DevTools -> Network/Console untuk pesan error.');
+
   </script>
 
   <script>
-    // Kuis logic
+    // Kuis logic (tetap sama)
     const answers = {
       0: 'b',
       1: 'c',
       2: 'a',
       3: 'b',
-      4: 'a', // Musée Rodin, Paris
-      5: 'a', // 1840
-      6: 'a'  // Perunggu
+      4: 'a',
+      5: 'a',
+      6: 'a'
     };
 
     const explanations = {
