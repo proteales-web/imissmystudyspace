@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Viewer 3D dan Kuis The Thinker</title>
+  <style>
+    :root{
+      --cream: #fff3e6;
+      --lightBeige: #f4e3cf;
+      --warmBrown: #8b4b2f;
+      --deepBrown: #5a2f20;
+      --accentOrange: #f08a3d;
+      --cardShadow: 0 10px 25px rgba(90,47,32,0.18);
+      --glassOpacity: 0.86;
+      --maxWidth: 960px;
+    }
+    html,body{
+      height:100%;
+      margin:0;
+      font-family: Inter, system-ui, Arial, sans-serif;
+      background: linear-gradient(180deg, #f7e9d6 0%, #f0d8b8 45%, #f9f1e6 100%);
+      color:#2f1f18;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      padding:32px 16px;
+    }
+    .page{
+      width:100%;
+      max-width:var(--maxWidth);
+      display:grid;
+      grid-template-columns:1fr;
+      gap:24px;
+    }
+    .viewerCard{
+      background:linear-gradient(180deg, rgba(255,255,255,var(--glassOpacity)), rgba(255,244,230,var(--glassOpacity)));
+      border-radius:16px;
+      box-shadow:var(--cardShadow);
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
+      overflow:hidden;
+    }
+    .canvasWrap{
+      width:100%;
+      height:560px;
+      border-radius:12px;
+      overflow:hidden;
+      background: radial-gradient(circle at 30% 20%, rgba(240,138,61,0.06), transparent 10%), linear-gradient(180deg, rgba(255,249,240,0.6), rgba(250,240,230,0.6));
+      box-shadow:inset 0 -6px 12px rgba(90,47,32,0.06);
+      position:relative;
+    }
+    canvas{
+      display:block;
+      width:100%;
+      height:100%;
+    }
+    .controlsRow{
+      margin-top:12px;
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:flex-end;
+    }
+    .btn{
+      background:var(--warmBrown);
+      color:var(--cream);
+      border:none;
+      padding:8px 14px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:600;
+      box-shadow:0 6px 14px rgba(88,43,28,0.16);
+    }
+    .btnGhost{
+      background:transparent;
+      color:var(--deepBrown);
+      border:2px solid rgba(90,47,32,0.08);
+      padding:6px 12px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    .quizCard{
+      background:linear-gradient(180deg, #fffdf8, #fff6ea);
+      border-radius:16px;
+      box-shadow:var(--cardShadow);
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .quizTitle{
+      font-size:20px;
+      color:var(--deepBrown);
+      font-weight:800;
+      letter-spacing:1px;
+      text-transform:uppercase;
+    }
+    .question{
+      background:linear-gradient(180deg, #fff, #fff8f2);
+      border-radius:12px;
+      padding:12px;
+      border:1px solid rgba(90,47,32,0.04);
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      flex-direction:column;
+    }
+    .qText{
+      font-weight:700;
+      color:var(--warmBrown);
+    }
+    .options{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-top:6px;
+    }
+    label.option{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding:8px 10px;
+      border-radius:10px;
+      cursor:pointer;
+      border:1px solid rgba(90,47,32,0.04);
+      background:transparent;
+    }
+    input[type=radio]{
+      width:18px;
+      height:18px;
+      accent-color:var(--accentOrange);
+    }
+    .explanation{
+      margin-top:8px;
+      padding:10px;
+      border-radius:8px;
+      background:rgba(240,138,61,0.06);
+      color:var(--deepBrown);
+      font-size:14px;
+      display:none;
+    }
+    .explanation.show{
+      display:block;
+    }
+    .resultLine{
+      margin-top:6px;
+      font-weight:700;
+      color:#0b5a3a;
+    }
+    @media (max-width:720px){
+      .canvasWrap{height:420px;}
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="viewerCard">
+      <div id="canvasWrap" class="canvasWrap"></div>
+      <div class="controlsRow">
+        <button id="resetView" class="btnGhost">Reset View</button>
+        <button id="toggleAuto" class="btn">Putar Otomatis</button>
+      </div>
+    </div>
+
+    <div class="quizCard" id="quizCard">
+      <div class="quizTitle">Kuis The Thinker</div>
+
+      <div class="question" data-q="0">
+        <div class="qText">Siapa pencipta patung The Thinker?</div>
+        <div class="options">
+          <label class="option"><input type="radio" name="q0" value="a">Antonio Canova</label>
+          <label class="option"><input type="radio" name="q0" value="b">Auguste Rodin</label>
+          <label class="option"><input type="radio" name="q0" value="c">Gian Lorenzo Bernini</label>
+          <label class="option"><input type="radio" name="q0" value="d">Camille Claudel</label>
+        </div>
+        <div class="explanation" id="exp0"></div>
+      </div>
+
+      <div class="question" data-q="1">
+        <div class="qText">Bahan asli yang dipakai Rodin untuk versi awal adalah</div>
+        <div class="options">
+          <label class="option"><input type="radio" name="q1" value="a">Perunggu</label>
+          <label class="option"><input type="radio" name="q1" value="b">Marmer</label>
+          <label class="option"><input type="radio" name="q1" value="c">Tanah liat</label>
+          <label class="option"><input type="radio" name="q1" value="d">Kayu</label>
+        </div>
+        <div class="explanation" id="exp1"></div>
+      </div>
+
+      <div class="question" data-q="2">
+        <div class="qText">The Thinker awalnya merupakan bagian dari karya yang berjudul</div>
+        <div class="options">
+          <label class="option"><input type="radio" name="q2" value="a">The Gates of Hell</label>
+          <label class="option"><input type="radio" name="q2" value="b">Monument to Balzac</label>
+          <label class="option"><input type="radio" name="q2" value="c">The Burghers of Calais</label>
+          <label class="option"><input type="radio" name="q2" value="d">The Age of Bronze</label>
+        </div>
+        <div class="explanation" id="exp2"></div>
+      </div>
+
+      <div class="question" data-q="3">
+        <div class="qText">Makna utama pose The Thinker menekankan</div>
+        <div class="options">
+          <label class="option"><input type="radio" name="q3" value="a">Kekuatan fisik yang dominan</label>
+          <label class="option"><input type="radio" name="q3" value="b">Proses pemikiran dan refleksi</label>
+          <label class="option"><input type="radio" name="q3" value="c">Kepatuhan pada aturan sosial</label>
+          <label class="option"><input type="radio" name="q3" value="d">Perayaan kemenangan militer</label>
+        </div>
+        <div class="explanation" id="exp3"></div>
+      </div>
+
+      <!-- Pertanyaan tambahan dimulai di sini -->
+      <div class="question" data-q="4">
+        <div class="qText">Di museum mana salah satu versi terkenal The Thinker dapat dilihat?</div>
+        <div class="options">
+          <label class="option"><input type="radio" name="q4" value="a">Musée Rodin, Paris</label>
+          <label class="option"><input type="radio" name="q4" value="b">Louvre, Paris</label>
+          <label class="option"><input type="radio" name="q4" value="c">British Museum, London</label>
+          <label class="option"><input type="radio" name="q4" value="d">Museo del Prado, Madrid</label>
+        </div>
+        <div class="explanation" id="exp4"></div>
+      </div>
+
+      <div class="question" data-q="5">
+        <div class="qText">Kapan Auguste Rodin lahir?</div>
+        <div class="options">
+          <label class="option"><input type="radio" name="q5" value="a">1840</label>
+          <label class="option"><input type="radio" name="q5" value="b">1850</label>
+          <label class="option"><input type="radio" name="q5" value="c">1830</label>
+          <label class="option"><input type="radio" name="q5" value="d">1860</label>
+        </div>
+        <div class="explanation" id="exp5"></div>
+      </div>
+
+      <div class="question" data-q="6">
+        <div class="qText">Material yang umum dipakai untuk versi patung besar The Thinker di ruang publik adalah</div>
+        <div class="options">
+          <label class="option"><input type="radio" name="q6" value="a">Perunggu</label>
+          <label class="option"><input type="radio" name="q6" value="b">Marmer</label>
+          <label class="option"><input type="radio" name="q6" value="c">Kayu</label>
+          <label class="option"><input type="radio" name="q6" value="d">Beton</label>
+        </div>
+        <div class="explanation" id="exp6"></div>
+      </div>
+      <!-- Pertanyaan tambahan selesai -->
+
+      <div style="display:flex; gap:12px; margin-top:8px; justify-content:flex-end;">
+        <button id="checkAnswers" class="btn">Periksa Jawaban</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.152.0/build/three.module.js';
+    import { GLTFLoader } from 'https://unpkg.com/three@0.152.0/examples/jsm/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'https://unpkg.com/three@0.152.0/examples/jsm/controls/OrbitControls.js';
+
+    const wrap = document.getElementById('canvasWrap');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf6eee0);
+
+    const camera = new THREE.PerspectiveCamera(45, wrap.clientWidth / wrap.clientHeight, 0.1, 2000);
+    camera.position.set(0, 1.4, 3);
+
+    const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+    renderer.physicallyCorrectLights = true;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    wrap.appendChild(renderer.domElement);
+
+    const hemi = new THREE.HemisphereLight(0xfff6ea, 0x8b6a58, 0.6);
+    scene.add(hemi);
+
+    const dir = new THREE.DirectionalLight(0xffcfa6, 0.9);
+    dir.position.set(5, 10, 7);
+    dir.castShadow = true;
+    dir.shadow.mapSize.set(2048, 2048);
+    scene.add(dir);
+
+    const fill = new THREE.PointLight(0xfff1da, 0.35);
+    fill.position.set(-5, 2, -3);
+    scene.add(fill);
+
+    const groundGeo = new THREE.CircleGeometry(6, 64);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0xf2e6d7, roughness: 0.85, metalness: 0.0 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.02;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 0.8;
+    controls.maxDistance = 10;
+    controls.target.set(0, 1.0, 0);
+
+    let mixer = null;
+    let autoRotate = false;
+    document.getElementById('toggleAuto').addEventListener('click', () => {
+      autoRotate = !autoRotate;
+      document.getElementById('toggleAuto').textContent = autoRotate ? 'Hentikan Putar' : 'Putar Otomatis';
+    });
+
+    document.getElementById('resetView').addEventListener('click', () => {
+      controls.reset();
+      camera.position.set(0, 1.4, 3);
+      controls.target.set(0, 1.0, 0);
+    });
+
+    const loader = new GLTFLoader();
+    loader.load('test.glb', (gltf) => {
+      const model = gltf.scene;
+      model.traverse((o) => {
+        if (o.isMesh) {
+          o.castShadow = true;
+          o.receiveShadow = true;
+          if (o.material) {
+            o.material.side = THREE.FrontSide;
+            o.material.needsUpdate = true;
+          }
+        }
+      });
+
+      // scale model to comfortable size
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      if (maxDim > 0) {
+        const scale = 1.2 / maxDim;
+        model.scale.setScalar(scale);
+      }
+
+      model.position.y = 0;
+      scene.add(model);
+
+      // add subtle rim light to model
+      const rim = new THREE.SpotLight(0xffe7d0, 0.25, 10, Math.PI / 6);
+      rim.position.set(-2, 3, 1.5);
+      scene.add(rim);
+
+      // optional animation
+      if (gltf.animations && gltf.animations.length) {
+        mixer = new THREE.AnimationMixer(model);
+        gltf.animations.forEach((clip) => {
+          mixer.clipAction(clip).play();
+        });
+      }
+    }, undefined, (err) => {
+      console.warn('Gagal memuat model', err);
+    });
+
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+      if (mixer) mixer.update(dt);
+      if (autoRotate) {
+        scene.rotation.y += 0.003;
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = wrap.clientWidth / wrap.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+    });
+  </script>
+
+  <script>
+    // Kuis logic
+    const answers = {
+      0: 'b',
+      1: 'c',
+      2: 'a',
+      3: 'b',
+      4: 'a', // Musée Rodin, Paris
+      5: 'a', // 1840
+      6: 'a'  // Perunggu
+    };
+
+    const explanations = {
+      0: 'Jawaban benar Auguste Rodin. Karya ini adalah salah satu karya paling terkenal Rodin dan sering dikaitkan dengan pemikiran filosofis.',
+      1: 'Jawaban benar tanah liat. Versi awal dibuat dalam tanah liat dan model awal kemudian dijadikan cetakan untuk versi perunggu.',
+      2: 'Jawaban benar The Gates of Hell. Figur yang sekarang dikenal sebagai The Thinker awalnya Rodin letakkan sebagai bagian dari komposisi lebih besar berjudul The Gates of Hell.',
+      3: 'Jawaban benar proses pemikiran dan refleksi. Pose duduk dengan dagu bertumpu pada tangan menonjolkan fokus pada renungan dan proses batin.',
+      4: 'Jawaban benar Musée Rodin di Paris adalah salah satu tempat yang memamerkan versi asli dan cetakan karya Rodin.',
+      5: 'Jawaban benar 1840. Auguste Rodin lahir pada 12 November 1840.',
+      6: 'Jawaban benar perunggu. Banyak versi besar The Thinker yang ditempatkan di ruang publik adalah cetakan perunggu.'
+    };
+
+    document.getElementById('checkAnswers').addEventListener('click', () => {
+      const total = Object.keys(answers).length;
+      for (let i = 0; i < total; i++) {
+        const chosen = document.querySelector('input[name=q' + i + ']:checked');
+        const expEl = document.getElementById('exp' + i);
+        if (!expEl) continue;
+        expEl.classList.remove('show');
+        expEl.style.borderLeft = '';
+        expEl.textContent = '';
+        if (!chosen) {
+          expEl.textContent = 'Belum memilih jawaban';
+          expEl.classList.add('show');
+          expEl.style.borderLeft = '4px solid #c76a2f';
+          continue;
+        }
+        const val = chosen.value;
+        if (val === answers[i]) {
+          expEl.textContent = 'Benar. ' + explanations[i];
+          expEl.classList.add('show');
+          expEl.style.borderLeft = '4px solid #1b7a4f';
+        } else {
+          expEl.textContent = 'Salah. ' + explanations[i];
+          expEl.classList.add('show');
+          expEl.style.borderLeft = '4px solid #8b2f2f';
+        }
+      }
+      // scroll to first explanation
+      const firstExp = document.querySelector('.explanation.show');
+      if (firstExp) firstExp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  </script>
+</body>
+</html>
