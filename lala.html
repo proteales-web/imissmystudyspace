@@ -4,88 +4,117 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>AR Camera — test.glb</title>
+  <!--
+    Petunjuk singkat penggunaan:
+    1) Letakkan file `test.glb` (dan optional `test.usdz` untuk iOS Quick Look) di folder yang sama dengan file HTML ini.
+    2) Layanan harus dijalankan via HTTPS (GitHub Pages, Netlify, Vercel, atau server dengan TLS).
+    3) Buka halaman ini lewat perangkat mobile:
+       - Android (Chrome): akan memanfaatkan Scene Viewer atau WebXR jika tersedia.
+       - iOS (Safari): Quick Look akan dipakai bila ada file .usdz; tanpa .usdz fallback menampilkan 3D non-AR.
+    4) Jika AR tidak otomatis muncul, coba update Chrome ke versi terbaru dan pastikan permission kamera diberikan.
 
-  <!-- model-viewer (Google) -->
-  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-
+    File ini memakai <model-viewer> (Google) untuk menangani WebXR / Scene Viewer / Quick Look secara otomatis.
+  -->
   <style>
-    html,body { height:100%; margin:0; background:#000; }
-    model-viewer { width:100vw; height:100vh; display:block; }
-    /* tombol custom kecil untuk desktop testing */
-    #info {
-      position: fixed;
-      left: 12px;
-      top: 12px;
-      z-index: 9;
-      background: rgba(0,0,0,0.45);
-      color: #fff;
-      padding: 8px 10px;
-      border-radius: 8px;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      font-size: 13px;
-      line-height:1.3;
-    }
-    a.link { color: #9cf; text-decoration: none; margin-left:6px; }
+    html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    .stage{display:flex;flex-direction:column;height:100%}
+    model-viewer{flex:1;background:#111}
+    header{padding:12px 16px;background:linear-gradient(90deg,#0b1220,#101827);color:#fff;display:flex;align-items:center;gap:12px}
+    header h1{font-size:16px;margin:0}
+    .controls{display:flex;gap:8px;margin-left:auto}
+    button{padding:8px 12px;border-radius:8px;border:0;background:#fff;color:#111;font-weight:600;cursor:pointer}
+    .note{padding:10px 16px;font-size:13px;background:#fffef0;color:#111}
   </style>
+  <!-- module build (modern browsers) -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <!-- nomodule fallback for older browsers -->
+  <script nomodule src="https://unpkg.com/@google/model-viewer/dist/model-viewer-legacy.js"></script>
 </head>
 <body>
+  <div class="stage">
+    <header>
+      <h1>Kamera AR — test.glb</h1>
+      <div class="controls">
+        <button id="btn-orbit">Mode 3D</button>
+        <button id="btn-ar">Mulai AR</button>
+      </div>
+    </header>
 
-  <div id="info">
-    Buka di ponsel untuk AR. Controls: pinch to scale / drag to rotate. 
-    <div style="margin-top:6px;font-size:12px;opacity:.9">
-      Android: Chrome &rarr; <b>View in your space</b> (Scene Viewer). 
-      iOS: Safari &rarr; <b>AR</b> (Quick Look, but membutuhkan .usdz).
+    <!-- Model Viewer utama. 
+         - src harus mengarah ke test.glb (letakkan file di folder yang sama)
+         - ar-modes memberi prioritas WebXR, lalu Scene Viewer (Android), lalu Quick Look (iOS)
+         - camera-controls: kontrol orbit saat bukan AR
+         - interaction-prompt: petunjuk otomatis
+    -->
+    <model-viewer id="mv"
+      src="test.glb"
+      alt="Model test.glb"
+      exposure="1"
+      shadow-intensity="1"
+      camera-controls
+      auto-rotate
+      interaction-prompt="auto"
+      ar
+      ar-modes="webxr scene-viewer quick-look"
+      style="width:100%;height:100%;"
+      >
+      <!-- Custom ar button (slot) -->
+      <button slot="ar-button" aria-label="View in your space">Lihat di ruangmu</button>
+    </model-viewer>
+
+    <div class="note">
+      Tips: Jika AR tidak muncul di Android, pastikan Chrome sudah update & halaman dibuka via HTTPS. Untuk iOS, sediakan file <code>test.usdz</code> agar Quick Look bekerja.
     </div>
   </div>
 
-  <!-- model-viewer:
-       - src: glb model
-       - ios-src: usdz for iOS Quick Look (optional, but recommended)
-       - ar: enable AR
-       - ar-modes: try WebXR, Scene Viewer (Android), Quick Look (iOS)
-       - camera-controls: for desktop orbiting
-       - auto-rotate: optional
-  -->
-  <model-viewer id="mv"
-                src="test.glb"
-                ios-src="test.usdz"
-                alt="Test 3D Model"
-                ar
-                ar-modes="webxr scene-viewer quick-look"
-                camera-controls
-                auto-rotate
-                exposure="1"
-                shadow-intensity="1"
-                interaction-prompt="auto"
-                style="background: #111;">
-  </model-viewer>
-
   <script>
-    // Small helpers to report AR availability and show friendly messages in console
-    const mv = document.getElementById('mv');
+    // Tombol-tombol UI: beralih antara mode 3D (orbit) dan membuka AR
+    const mv = document.querySelector('#mv');
+    const btnOrbit = document.querySelector('#btn-orbit');
+    const btnAR = document.querySelector('#btn-ar');
 
-    // When model is loaded, log bbox & sizes
-    mv.addEventListener('load', (ev) => {
-      console.log('Model loaded:', ev);
-      // Try to access model info
-      if (mv.model) {
-        const box = new THREE.Box3().setFromObject(mv.model);
-        console.log('Model bounds:', box.min, box.max);
+    btnOrbit.addEventListener('click', () => {
+      // Matikan auto-enter AR; pastikan camera-controls aktif
+      mv.cameraControls = true;
+      mv.autoRotate = true;
+      mv.setAttribute('camera-controls', '');
+      alert('Mode 3D: gunakan sentuhan untuk mengorbit, cubit untuk zoom.');
+    });
+
+    btnAR.addEventListener('click', async () => {
+      // model-viewer menyediakan UI AR-nya sendiri; kita bisa memanggil enterAR() bila didukung
+      try {
+        if (typeof mv.enterAR === 'function') {
+          await mv.enterAR();
+        } else {
+          // fallback: tampilkan pesan agar user klik tombol AR default yang nampak di layar
+          alert('AR tidak bisa dipicu programmatically di browser ini — silakan klik tombol "Lihat di ruangmu" pada model.');
+        }
+      } catch (e) {
+        console.warn('Gagal memulai AR programmatically:', e);
+        alert('Gagal memulai AR. Pastikan halaman dijalankan via HTTPS dan berikan izin kamera.');
       }
     });
 
-    // AR status events
-    mv.addEventListener('ar-status', (e) => {
-      console.log('AR status:', e.detail.status);
-    });
+    // Check kemampuan WebXR dan tampilkan info console (berguna untuk debugging)
+    (async function checkWebXR(){
+      const supportsWebXR = !!(navigator.xr && navigator.xr.isSessionSupported);
+      if (supportsWebXR) {
+        try {
+          const ok = await navigator.xr.isSessionSupported('immersive-ar');
+          console.log('WebXR immersive-ar supported:', ok);
+        } catch(err){
+          console.warn('isSessionSupported error',err);
+        }
+      } else {
+        console.log('WebXR tidak tersedia di browser ini.');
+      }
+    })();
 
-    // If WebXR not available, model-viewer will show other AR buttons automatically.
-    mv.addEventListener('error', (e) => {
-      console.error('model-viewer error:', e);
-    });
-
-    // Optional: programmatically start AR (requires user gesture) — kept commented:
-    // document.addEventListener('click', () => mv.activateAR());
+    // Event listeners sederhana dari model-viewer untuk membantu debugging
+    mv.addEventListener('load', () => console.log('model loaded'));
+    mv.addEventListener('error', (e) => console.error('model-viewer error', e));
+    mv.addEventListener('ar-status', (e) => console.log('ar-status', e));
   </script>
 </body>
 </html>
