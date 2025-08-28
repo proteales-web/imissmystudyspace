@@ -54,11 +54,16 @@
       background: radial-gradient(circle at 30% 20%, rgba(240,138,61,0.06), transparent 10%), linear-gradient(180deg, rgba(255,249,240,0.6), rgba(250,240,230,0.6));
       box-shadow:inset 0 -6px 12px rgba(90,47,32,0.06);
       position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
     }
-    canvas{
-      display:block;
+    model-viewer{
       width:100%;
       height:100%;
+      background: transparent;
+      border-radius:12px;
+      outline: none;
     }
     .controlsRow{
       margin-top:12px;
@@ -95,7 +100,7 @@
       z-index:20;
       padding:8px 10px;
       border-radius:8px;
-      background: rgba(255,255,255,0.85);
+      background: rgba(255,255,255,0.92);
       color: #5a2f20;
       font-weight:700;
       box-shadow: 0 6px 18px rgba(0,0,0,0.08);
@@ -188,20 +193,42 @@
       .canvasWrap{height:420px;}
     }
   </style>
+
+  <!-- model-viewer -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <script nomodule src="https://unpkg.com/@google/model-viewer/dist/model-viewer-legacy.js"></script>
 </head>
 <body>
   <div class="page">
     <div class="viewerCard">
       <div id="canvasWrap" class="canvasWrap">
-        <div id="status" class="statusOverlay">Memuat scene...</div>
+        <div id="status" class="statusOverlay">Memuat model...</div>
         <div id="error" class="errorOverlay"></div>
+
+        <!-- model-viewer menggantikan scene three.js -->
+        <!-- Pasang src ke test.glb. Tambahkan quick-look (.usdz) jika tersedia. -->
+        <model-viewer id="mv"
+          src="test.glb"
+          alt="The Thinker — test.glb"
+          camera-controls
+          exposure="1"
+          shadow-intensity="1"
+          interaction-prompt="auto"
+          style="width:100%;height:100%;"
+          ar
+          ar-modes="webxr scene-viewer quick-look">
+          <button slot="ar-button" aria-label="Lihat di ruangmu">Lihat di ruangmu</button>
+        </model-viewer>
       </div>
+
       <div class="controlsRow">
         <button id="resetView" class="btnGhost">Reset View</button>
         <button id="toggleAuto" class="btn">Putar Otomatis</button>
+        <button id="enterAR" class="btnGhost">Masuk AR</button>
       </div>
     </div>
 
+    <!-- Quiz tetap sama -->
     <div class="quizCard" id="quizCard">
       <div class="quizTitle">Kuis The Thinker</div>
 
@@ -249,7 +276,6 @@
         <div class="explanation" id="exp3"></div>
       </div>
 
-      <!-- Pertanyaan tambahan -->
       <div class="question" data-q="4">
         <div class="qText">Di museum mana salah satu versi terkenal The Thinker dapat dilihat?</div>
         <div class="options">
@@ -290,210 +316,82 @@
     </div>
   </div>
 
-  <script type="module">
-    import * as THREE from 'https://unpkg.com/three@0.152.0/build/three.module.js';
-    import { GLTFLoader } from 'https://unpkg.com/three@0.152.0/examples/jsm/loaders/GLTFLoader.js';
-    import { OrbitControls } from 'https://unpkg.com/three@0.152.0/examples/jsm/controls/OrbitControls.js';
-
-    const wrap = document.getElementById('canvasWrap');
+  <script>
+    const mv = document.getElementById('mv');
     const statusEl = document.getElementById('status');
     const errorEl = document.getElementById('error');
+    const btnAuto = document.getElementById('toggleAuto');
+    const btnReset = document.getElementById('resetView');
+    const btnAR = document.getElementById('enterAR');
 
-    // Scene, camera, renderer
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf6eee0);
+    // initial state
+    statusEl.textContent = 'Memuat model...';
+    errorEl.classList.remove('show');
 
-    const camera = new THREE.PerspectiveCamera(45, wrap.clientWidth / wrap.clientHeight, 0.1, 2000);
-    camera.position.set(0, 1.6, 3.2);
+    // events for model-viewer
+    mv.addEventListener('load', () => {
+      statusEl.textContent = 'Model dimuat';
+      errorEl.classList.remove('show');
+      console.log('model-viewer: loaded');
+    });
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(wrap.clientWidth, wrap.clientHeight);
-    renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.physicallyCorrectLights = true;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.shadowMap.enabled = true;
-    wrap.appendChild(renderer.domElement);
-
-    // Lighting
-    const hemi = new THREE.HemisphereLight(0xfff6ea, 0x8b6a58, 0.7);
-    scene.add(hemi);
-
-    const dir = new THREE.DirectionalLight(0xffcfa6, 0.9);
-    dir.position.set(5, 10, 7);
-    dir.castShadow = true;
-    dir.shadow.mapSize.set(2048, 2048);
-    scene.add(dir);
-
-    const fill = new THREE.PointLight(0xfff1da, 0.35);
-    fill.position.set(-5, 2, -3);
-    scene.add(fill);
-
-    // ground
-    const groundGeo = new THREE.CircleGeometry(6, 64);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0xf2e6d7, roughness: 0.85, metalness: 0.0 });
-    const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.02;
-    ground.receiveShadow = true;
-    scene.add(ground);
-
-    // controls
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.06;
-    controls.minDistance = 0.6;
-    controls.maxDistance = 10;
-    controls.target.set(0, 1.0, 0);
-
-    // root group - model or fallback placeholder will be added here
-    const rootGroup = new THREE.Group();
-    scene.add(rootGroup);
-
-    // --- PLACEHOLDER: cube, axes, grid (guarantees visible 3D) ---
-    const placeholder = new THREE.Group();
-    const boxGeo = new THREE.BoxGeometry(0.6, 0.9, 0.45);
-    const boxMat = new THREE.MeshStandardMaterial({ metalness: 0.25, roughness: 0.4 });
-    const box = new THREE.Mesh(boxGeo, boxMat);
-    box.castShadow = true;
-    box.position.y = 0.55;
-    placeholder.add(box);
-
-    const axes = new THREE.AxesHelper(1.1);
-    placeholder.add(axes);
-
-    const grid = new THREE.GridHelper(4, 12, 0xbbb2a6, 0xf0e7de);
-    grid.position.y = 0.001;
-    placeholder.add(grid);
-
-    rootGroup.add(placeholder);
-
-    // loader & attempt to load GLB
-    let modelLoaded = false;
-    let mixer = null;
-
-    const loader = new GLTFLoader();
-
-    // progress helper
-    function setStatus(text){
-      statusEl.textContent = text;
-    }
-    function showError(text){
-      errorEl.textContent = text;
+    mv.addEventListener('error', (ev) => {
+      const msg = ev?.detail?.error?.message || 'Gagal memuat model';
+      errorEl.textContent = 'Error: ' + msg;
       errorEl.classList.add('show');
-    }
-    setStatus('Memuat scene — placeholder ditampilkan');
+      statusEl.textContent = 'Model gagal dimuat';
+      console.error('model-viewer error', ev);
+    });
 
-    loader.load(
-      'test.glb',
-      (gltf) => {
-        try {
-          // remove placeholder only when model fully parsed
-          rootGroup.remove(placeholder);
-
-          const model = gltf.scene || gltf.scenes[0];
-          model.traverse((o) => {
-            if (o.isMesh) {
-              o.castShadow = true;
-              o.receiveShadow = true;
-              if (Array.isArray(o.material)) {
-                o.material.forEach(m => { if (m) m.needsUpdate = true; });
-              } else if (o.material) {
-                o.material.needsUpdate = true;
-              }
-            }
-          });
-
-          // center & scale model to comfortable size
-          const box3 = new THREE.Box3().setFromObject(model);
-          const size = box3.getSize(new THREE.Vector3());
-          const maxDim = Math.max(size.x, size.y, size.z);
-          if (maxDim > 0) {
-            const scale = 1.2 / maxDim;
-            model.scale.setScalar(scale);
-          }
-
-          // reposition model so its base sits near ground
-          box3.setFromObject(model);
-          const minY = box3.min.y;
-          model.position.y = model.position.y - minY;
-
-          rootGroup.add(model);
-          modelLoaded = true;
-          setStatus('Model dimuat: test.glb');
-          // animations
-          if (gltf.animations && gltf.animations.length) {
-            mixer = new THREE.AnimationMixer(model);
-            gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
-          }
-        } catch (e) {
-          console.error('Error saat menambahkan model ke scene', e);
-          showError('Gagal menambahkan model ke scene — lihat console');
-          setStatus('Placeholder tampil (model parsing error)');
-        }
-      },
-      (xhr) => {
-        if (xhr && xhr.total) {
-          const pct = (xhr.loaded / xhr.total * 100).toFixed(0);
-          setStatus('Memuat model test.glb: ' + pct + '%');
-        } else {
-          setStatus('Memuat model test.glb...');
-        }
-      },
-      (err) => {
-        console.error('Gagal memuat model test.glb', err);
-        // show helpful error message
-        let msg = 'Gagal memuat test.glb. Cek path, server (gunakan http), atau CORS. Placeholder tampil.';
-        // if error has message about Draco, add hint
-        if (err && err.message && err.message.toLowerCase().includes('draco')) {
-          msg += ' Jika file terkompresi DRACO, pasang DRACOLoader.';
-        }
-        showError(msg);
-        setStatus('Placeholder tampil (model gagal dimuat)');
+    // progress (if available)
+    mv.addEventListener('progress', (e) => {
+      // progress event detail might include total/loaded in some builds
+      if (e.detail && typeof e.detail.total === 'number') {
+        const pct = Math.round((e.detail.loaded / e.detail.total) * 100);
+        statusEl.textContent = 'Memuat model: ' + pct + '%';
+      } else {
+        statusEl.textContent = 'Memuat model...';
       }
-    );
-
-    // auto-rotate control (rotate rootGroup)
-    let autoRotate = false;
-    document.getElementById('toggleAuto').addEventListener('click', () => {
-      autoRotate = !autoRotate;
-      document.getElementById('toggleAuto').textContent = autoRotate ? 'Hentikan Putar' : 'Putar Otomatis';
     });
 
-    document.getElementById('resetView').addEventListener('click', () => {
-      controls.reset();
-      camera.position.set(0, 1.6, 3.2);
-      controls.target.set(0, 1.0, 0);
-      setStatus(modelLoaded ? 'Model tersedia' : 'Placeholder tampil');
+    // toggle auto-rotate
+    let auto = !!mv.getAttribute('auto-rotate');
+    // ensure attribute exists as boolean in DOM
+    mv.autoRotate = auto;
+    btnAuto.textContent = auto ? 'Hentikan Putar' : 'Putar Otomatis';
+    btnAuto.addEventListener('click', () => {
+      auto = !auto;
+      mv.autoRotate = auto;
+      btnAuto.textContent = auto ? 'Hentikan Putar' : 'Putar Otomatis';
     });
 
-    // animation loop
-    const clock = new THREE.Clock();
-    function animate() {
-      requestAnimationFrame(animate);
-      const dt = clock.getDelta();
-      if (mixer) mixer.update(dt);
-      if (autoRotate) rootGroup.rotation.y += 0.006;
-      controls.update();
-      renderer.render(scene, camera);
+    // reset view — set cameraOrbit to a sane default
+    function resetCamera() {
+      // default orbit (azimuth elevation distance) — tweak jika perlu
+      // model-viewer menerima nilai seperti "0deg 75deg 2.6m"
+      mv.cameraOrbit = '0deg 75deg 2.6m';
+      // request update to reflect change
+      mv.jumpCameraToGoal();
+      statusEl.textContent = 'View di-reset';
     }
-    animate();
+    btnReset.addEventListener('click', resetCamera);
 
-    // handle resize
-    window.addEventListener('resize', () => {
-      camera.aspect = wrap.clientWidth / wrap.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+    // enter AR (tries to start AR programmatically; fallback to built-in button)
+    btnAR.addEventListener('click', async () => {
+      try {
+        if (typeof mv.enterAR === 'function') {
+          await mv.enterAR();
+        } else {
+          alert('AR tidak dapat dimulai otomatis di browser ini. Klik tombol AR pada viewer.');
+        }
+      } catch (err) {
+        console.warn('Gagal memulai AR programmatically', err);
+        alert('Gagal memulai AR. Pastikan dijalankan via HTTPS dan izin kamera diberikan.');
+      }
     });
 
-    // quick debug: if WebGL not supported, show message
-    if (!renderer.capabilities.isWebGL2 && !renderer.capabilities.isWebGL) {
-      showError('Browser tidak mendukung WebGL. Gunakan browser modern (Chrome/Firefox/Edge).');
-    }
-
-    // helpful console hints
-    console.info('Viewer siap. Jika test.glb tidak muncul, periksa: (1) path test.glb, (2) jalankan lewat server HTTP, (3) buka DevTools -> Network/Console untuk pesan error.');
-
+    // Helpful console hints
+    console.info('Jika model tidak muncul: (1) taruh test.glb di folder yang sama, (2) jalankan server (python -m http.server atau buka via localhost), (3) cek DevTools untuk error.');
   </script>
 
   <script>
